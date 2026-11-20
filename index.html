@@ -1,0 +1,2180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Work, Energy, and Power — Advanced Virtual Physics Lab</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    input[type="range"] {
+      accent-color: #2563eb;
+      cursor: pointer;
+    }
+    .canvas-container {
+      touch-action: none;
+    }
+    @keyframes pulse-border {
+      0%, 100% { border-color: rgba(239, 68, 68, 0.5); }
+      50% { border-color: rgba(239, 68, 68, 1); }
+    }
+    .airborne-alert {
+      animation: pulse-border 1s infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-30 flex min-h-[60px] flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-2 shadow-xs">
+    <div class="flex items-center gap-3">
+      <div class="flex h-11 w-12 items-center justify-center rounded-xl bg-red-50 text-2xl shadow-inner">
+        🏎️
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-slate-900">Work, Energy, and Power Lab</h1>
+        <p class="text-xs text-slate-500 sm:text-sm">
+          Class 9 / 11 NCERT Physics — Spline Track Dynamics, Contact Mechanics &amp; Energy Conservation
+        </p>
+      </div>
+    </div>
+
+    <!-- MODE SWITCHER -->
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="flex rounded-lg border border-slate-200 bg-slate-100 p-1">
+        <button
+          id="btnModeEnergy"
+          onclick="switchMode('energy')"
+          class="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition"
+        >
+          1. Conservation of Energy (Track)
+        </button>
+        <button
+          id="btnModeWork"
+          onclick="switchMode('work')"
+          class="rounded-md px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition"
+        >
+          2. Work &amp; Power Simulator
+        </button>
+      </div>
+
+      <button
+        onclick="resetLab()"
+        class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 transition"
+      >
+        ↺ Reset All
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- MODE 1: CONSERVATION OF MECHANICAL ENERGY (ADVANCED TRACK LAB)        -->
+  <!-- ===================================================================== -->
+  <div id="sectionEnergy">
+    <section class="border-b border-slate-200 bg-white">
+      <!-- TOP TOOLBAR: TRACK TEMPLATES & EDIT MODE -->
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/70 px-5 py-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Track Preset:</span>
+          <select
+            id="selectTrackTemplate"
+            onchange="loadTrackTemplate(this.value)"
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-800 shadow-2xs"
+          >
+            <option value="u_track" selected>1. Simple U-Shaped Track</option>
+            <option value="wavy">2. Wavy Roller Coaster (Crest Jump)</option>
+            <option value="three_dip">3. Three-Dip Track</option>
+            <option value="straight">4. Straight Inclined Ramp</option>
+            <option value="extreme">5. Extreme Launch Ramp</option>
+            <option value="loop_hill">6. Loop-Crest Track</option>
+            <option value="custom" disabled>★ Custom Edited Track</option>
+          </select>
+
+          <button
+            id="btnToggleEdit"
+            onclick="toggleTrackEditMode()"
+            class="rounded-lg border border-indigo-300 bg-indigo-50 px-3.5 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition"
+          >
+            ✏️ Edit Track Geometry
+          </button>
+        </div>
+
+        <!-- EDIT MODE ACTIONS -->
+        <div id="editTrackControls" class="hidden flex-wrap items-center gap-1.5">
+          <button onclick="undoTrack()" id="btnUndoTrack" class="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold hover:bg-slate-50 disabled:opacity-40">
+            ↶ Undo
+          </button>
+          <button onclick="redoTrack()" id="btnRedoTrack" class="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold hover:bg-slate-50 disabled:opacity-40">
+            ↷ Redo
+          </button>
+          <button onclick="deleteSelectedPoint()" id="btnDeletePt" class="rounded-md border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-40">
+            🗑 Delete Point
+          </button>
+          <button onclick="saveCustomTrack()" class="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">
+            💾 Save Track
+          </button>
+          <button onclick="loadSavedTrack()" id="btnLoadSaved" class="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold hover:bg-slate-50">
+            📂 Load Saved
+          </button>
+        </div>
+
+        <!-- STATUS BADGE -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-slate-500">Vehicle State:</span>
+          <span id="badgeCarState" class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-extrabold text-emerald-800">
+            ON TRACK — NORMAL SPEED
+          </span>
+        </div>
+      </div>
+
+      <!-- LEGEND & SUBTITLE -->
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 pt-3">
+        <div>
+          <h2 class="font-bold text-blue-700">Conservation of Mechanical Energy &amp; Normal Contact Dynamics</h2>
+          <p id="trackHintText" class="text-xs text-slate-500">
+            Drag the red supercar along the track or adjust initial speed v₀. At high-speed crests where N ≤ 0, the car launches into free parabolic flight!
+          </p>
+        </div>
+
+        <div class="flex flex-wrap gap-3 text-xs font-semibold">
+          <span class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span> KE
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-full bg-blue-600"></span> PE
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-full bg-orange-500"></span> Thermal
+          </span>
+          <span class="flex items-center gap-1.5">
+            <span class="h-2.5 w-2.5 rounded-full bg-purple-600"></span> Total E
+          </span>
+        </div>
+      </div>
+
+      <!-- SIMULATION CANVAS -->
+      <div class="canvas-container relative overflow-x-auto px-2 py-2">
+        <canvas
+          id="energyCanvas"
+          width="1150"
+          height="430"
+          class="mx-auto block w-full max-w-[1150px] cursor-grab rounded-xl border border-slate-200 bg-slate-900 shadow-inner"
+        ></canvas>
+      </div>
+
+      <!-- PLAYBACK & REPLAY CONTROLS -->
+      <div class="mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            id="btnPlayEnergy"
+            onclick="togglePlayEnergy()"
+            class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white hover:bg-blue-700 shadow-2xs"
+          >
+            Ⅱ Pause
+          </button>
+
+          <button
+            onclick="stepEnergy()"
+            class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold hover:bg-slate-100"
+          >
+            Step +
+          </button>
+
+          <button
+            onclick="restartCart()"
+            class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold hover:bg-slate-100"
+          >
+            ↺ Release Car
+          </button>
+
+          <button
+            id="btnSlowMoReplay"
+            onclick="triggerFlightReplay()"
+            class="hidden rounded-lg border border-amber-300 bg-amber-50 px-3.5 py-2 text-sm font-bold text-amber-800 hover:bg-amber-100"
+          >
+            🎬 Slow-Mo Flight Replay (0.25x)
+          </button>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-4">
+          <div class="flex items-center gap-2">
+            <label class="text-xs font-bold text-slate-600">Sim Speed</label>
+            <select
+              id="selectSpeed"
+              class="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold"
+            >
+              <option value="0.25">0.25x (Slow-Mo)</option>
+              <option value="0.5">0.5x</option>
+              <option value="1" selected>1.0x (Real-Time)</option>
+              <option value="2">2.0x</option>
+              <option value="4">4.0x</option>
+            </select>
+          </div>
+
+          <label class="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-slate-700">
+            <input id="chkFollowCam" type="checkbox" checked class="h-4 w-4 rounded" />
+            <span>Dynamic Camera Follow</span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD: CONTROLS, READINGS & LIVE EQUATIONS -->
+    <main class="grid grid-cols-1 gap-4 p-4 lg:grid-cols-3">
+      <!-- PARAMETERS & VECTORS -->
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+        <h2 class="mb-4 border-b border-slate-100 pb-3 text-lg font-bold">
+          🎚 System &amp; Launch Parameters
+        </h2>
+
+        <!-- Mass Slider -->
+        <div class="mb-4">
+          <div class="mb-1 flex items-center justify-between">
+            <label class="text-sm font-semibold">Supercar Mass (m)</label>
+            <span id="valMass" class="rounded-md bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+              2.0 kg
+            </span>
+          </div>
+          <input id="sliderMass" type="range" min="1" max="10" step="0.5" value="2" class="w-full" />
+        </div>
+
+        <!-- Initial Height Slider -->
+        <div class="mb-4">
+          <div class="mb-1 flex items-center justify-between">
+            <label class="text-sm font-semibold">Release Height (h₀)</label>
+            <span id="valStartH" class="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">
+              8.0 m
+            </span>
+          </div>
+          <input id="sliderStartH" type="range" min="0.5" max="11" step="0.5" value="8" class="w-full" />
+        </div>
+
+        <!-- Initial Launch Boost Speed Slider -->
+        <div class="mb-4">
+          <div class="mb-1 flex items-center justify-between">
+            <label class="text-sm font-semibold">Initial Launch Speed (v₀)</label>
+            <span id="valInitV" class="rounded-md bg-red-50 px-2 py-0.5 text-xs font-bold text-red-700">
+              0.0 m/s
+            </span>
+          </div>
+          <input id="sliderInitV" type="range" min="0" max="18" step="0.5" value="0" class="w-full" />
+          <p class="mt-0.5 text-[11px] text-slate-400">Increase v₀ on wavy/crest tracks to launch the car airborne!</p>
+        </div>
+
+        <!-- Gravity Slider & Toggle -->
+        <div class="mb-4">
+          <div class="mb-1 flex items-center justify-between">
+            <label class="flex items-center gap-2 text-sm font-semibold">
+              <input id="chkGravity" type="checkbox" checked class="h-3.5 w-3.5 rounded" />
+              <span>Gravity (g)</span>
+            </label>
+            <span id="valGravity" class="rounded-md bg-purple-50 px-2 py-0.5 text-xs font-bold text-purple-700">
+              9.8 m/s²
+            </span>
+          </div>
+          <input id="sliderGravity" type="range" min="1.6" max="20" step="0.2" value="9.8" class="w-full" />
+        </div>
+
+        <!-- Friction Slider & Toggle -->
+        <div class="mb-4">
+          <div class="mb-1 flex items-center justify-between">
+            <label class="flex items-center gap-2 text-sm font-semibold">
+              <input id="chkFriction" type="checkbox" checked class="h-3.5 w-3.5 rounded" />
+              <span>Friction Coefficient (μ)</span>
+            </label>
+            <span id="valFriction" class="rounded-md bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-700">
+              0.00 (Ideal)
+            </span>
+          </div>
+          <input id="sliderFriction" type="range" min="0" max="0.25" step="0.01" value="0" class="w-full" />
+        </div>
+
+        <!-- Vector & Trail Overlays -->
+        <div class="border-t border-slate-100 pt-3">
+          <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500">Physics Vector Overlays</h3>
+          <div class="grid grid-cols-2 gap-2 text-xs font-medium">
+            <label class="flex cursor-pointer items-center gap-1.5">
+              <input id="chkVecVelocity" type="checkbox" checked class="h-3.5 w-3.5 rounded" />
+              <span class="font-semibold text-emerald-700">Velocity (v)</span>
+            </label>
+            <label class="flex cursor-pointer items-center gap-1.5">
+              <input id="chkVecForces" type="checkbox" checked class="h-3.5 w-3.5 rounded" />
+              <span class="font-semibold text-amber-700">Normal &amp; Gravity (N, mg)</span>
+            </label>
+            <label class="flex cursor-pointer items-center gap-1.5">
+              <input id="chkVecAccel" type="checkbox" class="h-3.5 w-3.5 rounded" />
+              <span class="font-semibold text-purple-700">Acceleration (a)</span>
+            </label>
+            <label class="flex cursor-pointer items-center gap-1.5">
+              <input id="chkShowTrail" type="checkbox" checked class="h-3.5 w-3.5 rounded" />
+              <span class="font-semibold text-blue-700">Motion &amp; Flight Trail</span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- LIVE READINGS & CONTACT MECHANICS -->
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+        <h2 class="mb-4 border-b border-slate-100 pb-3 text-lg font-bold">
+          ✨ Live Telemetry &amp; Contact Mechanics
+        </h2>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+            <p class="text-[10px] font-bold tracking-wide text-slate-500">KINETIC ENERGY (KE)</p>
+            <p id="cardKE" class="mt-1 text-xl font-bold text-emerald-600">0.0 J</p>
+            <p class="text-[10px] text-slate-500">KE = ½ mv²</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+            <p class="text-[10px] font-bold tracking-wide text-slate-500">POTENTIAL ENERGY (PE)</p>
+            <p id="cardPE" class="mt-1 text-xl font-bold text-blue-600">156.8 J</p>
+            <p class="text-[10px] text-slate-500">PE = mgh</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+            <p class="text-[10px] font-bold tracking-wide text-slate-500">THERMAL LOSS (Q)</p>
+            <p id="cardThermal" class="mt-1 text-xl font-bold text-orange-600">0.0 J</p>
+            <p class="text-[10px] text-slate-500">Friction dissipation</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+            <p class="text-[10px] font-bold tracking-wide text-slate-500">TOTAL ENERGY (E₀)</p>
+            <p id="cardTotalE" class="mt-1 text-xl font-bold text-purple-600">156.8 J</p>
+            <p class="text-[10px] text-slate-500">KE + PE + Q</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+            <p class="text-[10px] font-bold tracking-wide text-slate-500">NORMAL FORCE (N)</p>
+            <p id="cardNormalN" class="mt-1 text-xl font-bold text-amber-600">19.6 N</p>
+            <p id="cardContactSub" class="text-[10px] font-semibold text-emerald-600">Contact maintained (N &gt; 0)</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+            <p class="text-[10px] font-bold tracking-wide text-slate-500">SPEED &amp; HEIGHT</p>
+            <p id="cardSpeed" class="mt-1 text-xl font-bold text-slate-900">0.00 m/s</p>
+            <p id="cardCurrH" class="text-[10px] text-slate-500">h = 8.00 m | κ = 0.00 m⁻¹</p>
+          </div>
+        </div>
+
+        <div class="mt-3 rounded-lg border border-blue-100 bg-blue-50/70 p-3 text-xs leading-5 text-slate-700">
+          <strong class="text-blue-900">Why Does the Car Fly Off Crests?</strong><br />
+          On a convex hill crest of curvature κ = 1/R, centripetal force requires <code>mg cosθ − N = mv²/R</code>. When speed <code>v</code> is high enough that <code>v²/R ≥ g cosθ</code>, the normal force drops to <strong>N = 0</strong> and the car enters free parabolic flight!
+        </div>
+      </section>
+
+      <!-- LIVE EQUATIONS -->
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+        <div class="mb-3 flex items-center justify-between border-b border-slate-100 pb-3">
+          <h2 class="text-lg font-bold">🧮 Live Physics Equations</h2>
+          <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+            SI Units
+          </span>
+        </div>
+
+        <div class="space-y-2.5 text-xs">
+          <div>
+            <h3 class="mb-1 font-bold text-slate-700">1. Initial Mechanical Energy (E₀ = mgh₀ + ½mv₀²)</h3>
+            <div class="rounded-lg bg-slate-50 p-2 font-mono leading-5">
+              <p id="derivE0">= 156.80 J</p>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="mb-1 font-bold text-slate-700">2. Potential &amp; Kinetic Energy</h3>
+            <div class="rounded-lg bg-slate-50 p-2 font-mono leading-5">
+              <p id="derivPE">PE = mgh = 156.80 J</p>
+              <p id="derivKE">KE = ½mv² = 0.00 J</p>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="mb-1 font-bold text-slate-700">3. Normal Contact &amp; Curvature (N = m(g cosθ + v²κ))</h3>
+            <div class="rounded-lg bg-slate-50 p-2 font-mono leading-5">
+              <p id="derivNormal">N = 19.60 N | a = 0.00 m/s²</p>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="mb-1 font-bold text-slate-700">4. Projectile Flight Equations (when Airborne)</h3>
+            <div class="rounded-lg border border-amber-100 bg-amber-50/70 p-2 font-mono leading-5 text-amber-950">
+              <p id="derivFlight">Status: Constrained to track spline</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- REAL-TIME MULTI-VARIABLE TIME GRAPHS -->
+    <section class="grid grid-cols-1 gap-4 px-4 pb-6 lg:grid-cols-2">
+      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+        <div class="mb-2 flex items-center justify-between">
+          <h3 class="font-bold text-slate-800">📈 Energy Transformation vs Time (KE, PE, Thermal, Total)</h3>
+          <span class="text-[11px] font-semibold text-slate-400">Live Rolling Window (12s)</span>
+        </div>
+        <canvas id="energyHistoryCanvas" width="540" height="170" class="w-full rounded-lg border border-slate-100 bg-slate-50/50"></canvas>
+      </div>
+
+      <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+        <div class="mb-2 flex items-center justify-between">
+          <h3 class="font-bold text-slate-800">📉 Instantaneous Speed (m/s) &amp; Normal Force (N) vs Time</h3>
+          <span class="text-[11px] font-semibold text-slate-400">N = 0 indicates Takeoff</span>
+        </div>
+        <canvas id="speedHistoryCanvas" width="540" height="170" class="w-full rounded-lg border border-slate-100 bg-slate-50/50"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MODE 2: WORK, FORCE, AND POWER SIMULATOR (PRESERVED & INTACT)         -->
+  <!-- ===================================================================== -->
+  <div id="sectionWork" class="hidden">
+    <section class="border-b border-slate-200 bg-white">
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 pt-4">
+        <div>
+          <h2 class="font-bold text-blue-700">Mechanical Work, Power &amp; Work-Energy Theorem</h2>
+          <p class="text-xs text-slate-500">
+            Apply a pulling force at angle θ over displacement d to measure Work (W = F·d·cosθ) and Power (P = W/t)
+          </p>
+        </div>
+
+        <div class="flex flex-wrap gap-4 text-xs font-semibold">
+          <span class="flex items-center gap-2">
+            <span class="h-2.5 w-2.5 rounded-full bg-orange-500"></span> Applied Force (F)
+          </span>
+          <span class="flex items-center gap-2">
+            <span class="h-2.5 w-2.5 rounded-full bg-emerald-600"></span> Effective Component (F cosθ)
+          </span>
+          <span class="flex items-center gap-2">
+            <span class="h-2.5 w-2.5 rounded-full bg-blue-600"></span> Displacement (d)
+          </span>
+        </div>
+      </div>
+
+      <div class="relative overflow-x-auto px-2 py-2">
+        <canvas
+          id="workCanvas"
+          width="1100"
+          height="360"
+          class="mx-auto block w-full max-w-[1100px] rounded-lg border border-slate-100 bg-slate-50/40"
+        ></canvas>
+      </div>
+
+      <div class="mx-4 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <button
+          onclick="runWorkPush()"
+          class="rounded-lg bg-blue-600 px-5 py-2 text-sm font-bold text-white hover:bg-blue-700"
+        >
+          ▶ Apply Force &amp; Push Block
+        </button>
+
+        <div class="text-xs font-semibold text-slate-600">
+          Note: When θ = 90° (force perpendicular to displacement), <span class="text-red-600">Work Done = 0 J</span> (cos 90° = 0)
+        </div>
+      </div>
+    </section>
+
+    <main class="grid grid-cols-1 gap-4 p-4 lg:grid-cols-3">
+      <section class="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 class="mb-4 border-b border-slate-100 pb-3 text-lg font-bold">
+          🎚 Force &amp; Displacement Controls
+        </h2>
+
+        <div class="mb-4">
+          <div class="mb-1 flex justify-between text-sm font-semibold">
+            <span>Applied Force (F)</span>
+            <span id="valWorkForce" class="rounded bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-700">50 N</span>
+          </div>
+          <input id="sliderWorkForce" type="range" min="10" max="150" step="5" value="50" class="w-full" />
+        </div>
+
+        <div class="mb-4">
+          <div class="mb-1 flex justify-between text-sm font-semibold">
+            <span>Force Angle (θ)</span>
+            <span id="valWorkAngle" class="rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700">30°</span>
+          </div>
+          <input id="sliderWorkAngle" type="range" min="0" max="180" step="5" value="30" class="w-full" />
+        </div>
+
+        <div class="mb-4">
+          <div class="mb-1 flex justify-between text-sm font-semibold">
+            <span>Displacement (d)</span>
+            <span id="valWorkDist" class="rounded bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">10 m</span>
+          </div>
+          <input id="sliderWorkDist" type="range" min="2" max="20" step="1" value="10" class="w-full" />
+        </div>
+
+        <div class="mb-2">
+          <div class="mb-1 flex justify-between text-sm font-semibold">
+            <span>Time Taken (t)</span>
+            <span id="valWorkTime" class="rounded bg-purple-50 px-2 py-0.5 text-xs font-bold text-purple-700">4.0 s</span>
+          </div>
+          <input id="sliderWorkTime" type="range" min="1" max="15" step="0.5" value="4" class="w-full" />
+        </div>
+      </section>
+
+      <section class="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 class="mb-4 border-b border-slate-100 pb-3 text-lg font-bold">
+          ✨ Work, Power &amp; Final Speed
+        </h2>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p class="text-[10px] font-bold text-slate-500">WORK DONE (W)</p>
+            <p id="cardWorkDone" class="mt-2 text-2xl font-bold text-blue-600">433.0</p>
+            <p class="text-xs font-semibold text-slate-600">Joules (J)</p>
+            <p id="cardWorkType" class="mt-1 text-[10px] font-bold text-emerald-600">Positive Work</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p class="text-[10px] font-bold text-slate-500">AVERAGE POWER (P)</p>
+            <p id="cardPower" class="mt-2 text-2xl font-bold text-purple-600">108.3</p>
+            <p class="text-xs font-semibold text-slate-600">Watts (J/s)</p>
+            <p id="cardHorsepower" class="mt-1 text-[10px] text-slate-500">0.15 HP</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p class="text-[10px] font-bold text-slate-500">EFFECTIVE FORCE</p>
+            <p id="cardEffForce" class="mt-2 text-2xl font-bold text-emerald-600">43.3</p>
+            <p class="text-xs font-semibold text-slate-600">Newtons (F cosθ)</p>
+            <p class="mt-1 text-[10px] text-slate-500">Along displacement</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p class="text-[10px] font-bold text-slate-500">FINAL SPEED (m = 5 kg)</p>
+            <p id="cardWorkSpeed" class="mt-2 text-2xl font-bold text-orange-600">13.16</p>
+            <p class="text-xs font-semibold text-slate-600">m/s</p>
+            <p class="mt-1 text-[10px] text-slate-500">Via W = ΔKE = ½mv²</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="rounded-xl border border-slate-200 bg-white p-4">
+        <h2 class="mb-4 border-b border-slate-100 pb-3 text-lg font-bold">
+          🧮 Live Step-by-Step Calculation
+        </h2>
+
+        <div class="space-y-3 font-mono text-xs">
+          <div class="rounded-lg bg-slate-50 p-3 leading-6">
+            <p class="font-bold text-slate-700">1. Mechanical Work Formula:</p>
+            <p>W = F · d · cos(θ)</p>
+            <p id="derivWorkLine1">= 50 × 10 × cos(30°)</p>
+            <p id="derivWorkRes" class="font-bold text-blue-700">= 433.01 Joules</p>
+          </div>
+
+          <div class="rounded-lg bg-slate-50 p-3 leading-6">
+            <p class="font-bold text-slate-700">2. Mechanical Power Formula:</p>
+            <p>P = W / t</p>
+            <p id="derivPowerLine1">= 433.01 / 4.0</p>
+            <p id="derivPowerRes" class="font-bold text-purple-700">= 108.25 Watts</p>
+          </div>
+
+          <div class="rounded-lg border border-emerald-100 bg-emerald-50 p-3 font-sans text-xs leading-5 text-emerald-900">
+            <strong>Sign of Work:</strong><br />
+            • <strong>0° ≤ θ &lt; 90°:</strong> Positive Work (speeds object up)<br />
+            • <strong>θ = 90°:</strong> Zero Work (force perpendicular to motion)<br />
+            • <strong>90° &lt; θ ≤ 180°:</strong> Negative Work (opposes motion, e.g., friction)
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-200 bg-white px-4 py-4 text-center text-xs text-slate-500">
+    Work, Energy, and Power Virtual Lab | Spline Roller Coaster | Curvature Contact Mechanics | Conservation of Energy
+  </footer>
+
+  <!-- ===================================================================== -->
+  <!-- JAVASCRIPT PHYSICS ENGINE, SPLINE EDITOR & SUPERCAR RENDERER          -->
+  <!-- ===================================================================== -->
+  <script>
+    let activeMode = "energy";
+
+    function switchMode(mode) {
+      activeMode = mode;
+      const eSec = document.getElementById("sectionEnergy");
+      const wSec = document.getElementById("sectionWork");
+      const btnE = document.getElementById("btnModeEnergy");
+      const btnW = document.getElementById("btnModeWork");
+
+      if (mode === "energy") {
+        eSec.classList.remove("hidden");
+        wSec.classList.add("hidden");
+        btnE.className = "rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition";
+        btnW.className = "rounded-md px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition";
+      } else {
+        eSec.classList.add("hidden");
+        wSec.classList.remove("hidden");
+        btnW.className = "rounded-md bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm transition";
+        btnE.className = "rounded-md px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-900 transition";
+        updateWorkCalculations();
+      }
+    }
+
+    // =========================================================================
+    // TRACK TEMPLATES & CATMULL-ROM SPLINE ENGINE (meters: x in [0, 32], y in [0, 14])
+    // =========================================================================
+    const WORLD_W = 32;
+    const WORLD_H = 14;
+
+    const TRACK_TEMPLATES = {
+      u_track: [
+        { x: 0, y: 10.5 },
+        { x: 4, y: 5.5 },
+        { x: 9, y: 1.3 },
+        { x: 16, y: 0.2 },
+        { x: 23, y: 1.3 },
+        { x: 28, y: 5.5 },
+        { x: 32, y: 10.5 }
+      ],
+      wavy: [
+        { x: 0, y: 11.0 },
+        { x: 5, y: 3.5 },
+        { x: 10, y: 1.0 },
+        { x: 15.5, y: 5.8 },
+        { x: 21, y: 1.2 },
+        { x: 27, y: 4.5 },
+        { x: 32, y: 10.5 }
+      ],
+      three_dip: [
+        { x: 0, y: 11.5 },
+        { x: 4.5, y: 1.5 },
+        { x: 9.5, y: 6.2 },
+        { x: 15.5, y: 1.0 },
+        { x: 21.5, y: 6.5 },
+        { x: 27, y: 1.5 },
+        { x: 32, y: 11.0 }
+      ],
+      straight: [
+        { x: 0, y: 10.5 },
+        { x: 8, y: 7.8 },
+        { x: 16, y: 5.1 },
+        { x: 24, y: 2.4 },
+        { x: 32, y: 0.3 }
+      ],
+      extreme: [
+        { x: 0, y: 12.0 },
+        { x: 5, y: 4.0 },
+        { x: 10, y: 0.6 },
+        { x: 14.5, y: 4.2 },
+        { x: 18, y: 0.8 },
+        { x: 25, y: 0.5 },
+        { x: 32, y: 8.5 }
+      ],
+      loop_hill: [
+        { x: 0, y: 11.5 },
+        { x: 6, y: 2.0 },
+        { x: 12, y: 0.5 },
+        { x: 16.5, y: 7.4 },
+        { x: 21, y: 0.6 },
+        { x: 27, y: 2.2 },
+        { x: 32, y: 11.5 }
+      ]
+    };
+
+    const energyState = {
+      mass: 2.0,
+      startH: 8.0,
+      initV: 0.0,
+      gravity: 9.8,
+      gravityEnabled: true,
+      friction: 0.0,
+      frictionEnabled: true,
+
+      x: 2.5,
+      y: 8.0,
+      vx: 0.0,
+      vy: 0.0,
+      wheelAngle: 0.0,
+      suspensionOffset: 0.0,
+      isAirborne: false,
+      landingCooldown: 0,
+      landingFlash: 0,
+
+      thermalEnergy: 0.0,
+      totalInitialEnergy: 0.0,
+      simTime: 0.0,
+
+      isPlaying: true,
+      speedMult: 1.0,
+      followCam: true,
+      camX: 16,
+      camY: 5.5,
+      camZoom: 1.0,
+      shakeIntensity: 0,
+
+      showVelocity: true,
+      showForces: true,
+      showAccel: false,
+      showTrail: true,
+      trail: [],
+      particles: [],
+
+      flightSnapshot: null,
+      hasFlightRecorded: false,
+
+      editMode: false,
+      controlPoints: JSON.parse(JSON.stringify(TRACK_TEMPLATES.u_track)),
+      selectedPtIndex: -1,
+      draggingPtIndex: -1,
+      draggingCart: false,
+      undoStack: [],
+      redoStack: [],
+
+      history: []
+    };
+
+    function catmullRom(p0, p1, p2, p3, t) {
+      const t2 = t * t;
+      const t3 = t2 * t;
+      return (
+        0.5 *
+        (2 * p1 +
+          (-p0 + p2) * t +
+          (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 +
+          (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+      );
+    }
+
+    let splineSamples = [];
+    function rebuildSplineCache() {
+      const pts = energyState.controlPoints;
+      splineSamples = [];
+      if (pts.length < 2) return;
+
+      const stepsPerSeg = 40;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[Math.max(0, i - 1)];
+        const p1 = pts[i];
+        const p2 = pts[i + 1];
+        const p3 = pts[Math.min(pts.length - 1, i + 2)];
+
+        for (let s = 0; s < stepsPerSeg; s++) {
+          const t = s / stepsPerSeg;
+          const sx = catmullRom(p0.x, p1.x, p2.x, p3.x, t);
+          const sy = Math.max(0.1, Math.min(13.5, catmullRom(p0.y, p1.y, p2.y, p3.y, t)));
+          splineSamples.push({ x: sx, y: sy });
+        }
+      }
+      const last = pts[pts.length - 1];
+      splineSamples.push({ x: last.x, y: Math.max(0.1, Math.min(13.5, last.y)) });
+    }
+
+    function getRawYAtX(cx) {
+      let lo = 0;
+      let hi = splineSamples.length - 1;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (splineSamples[mid].x <= cx) lo = mid;
+        else hi = mid;
+      }
+      const pA = splineSamples[lo];
+      const pB = splineSamples[hi];
+      const span = Math.max(1e-5, pB.x - pA.x);
+      return pA.y + ((cx - pA.x) / span) * (pB.y - pA.y);
+    }
+
+    function sampleTrackAtX(worldX) {
+      if (splineSamples.length < 2) {
+        return { y: 0.2, dydx: 0, d2ydx2: 0, theta: 0, kappa: 0 };
+      }
+      const minX = splineSamples[0].x;
+      const maxX = splineSamples[splineSamples.length - 1].x;
+      const cx = Math.max(minX, Math.min(maxX, worldX));
+      const y = getRawYAtX(cx);
+
+      const eps = 0.08;
+      const yLeft = getRawYAtX(Math.max(minX, cx - eps));
+      const yRight = getRawYAtX(Math.min(maxX, cx + eps));
+
+      const dxLeft = Math.max(1e-4, cx - Math.max(minX, cx - eps));
+      const dxRight = Math.max(1e-4, Math.min(maxX, cx + eps) - cx);
+
+      const slopeL = (y - yLeft) / dxLeft;
+      const slopeR = (yRight - y) / dxRight;
+      const dydx = 0.5 * (slopeL + slopeR);
+      const d2ydx2 = (slopeR - slopeL) / (0.5 * (dxLeft + dxRight));
+
+      const theta = Math.atan(dydx);
+      const kappa = d2ydx2 / Math.pow(1 + dydx * dydx, 1.5);
+
+      return { y, dydx, d2ydx2, theta, kappa };
+    }
+
+    function findStartXForHeight(targetH) {
+      let bestX = splineSamples[0]?.x ?? 1;
+      let bestDiff = Infinity;
+      const limitIdx = Math.max(2, Math.floor(splineSamples.length * 0.6));
+      for (let i = 0; i < limitIdx; i++) {
+        const diff = Math.abs(splineSamples[i].y - targetH);
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestX = splineSamples[i].x;
+        }
+      }
+      return bestX;
+    }
+
+    function initCarOnTrack(customX = null) {
+      rebuildSplineCache();
+      const startX = customX !== null ? customX : findStartXForHeight(energyState.startH);
+      const sample = sampleTrackAtX(startX);
+
+      energyState.x = startX;
+      energyState.y = sample.y;
+      energyState.startH = Number(sample.y.toFixed(1));
+      document.getElementById("sliderStartH").value = Math.min(11, Math.max(0.5, energyState.startH));
+      document.getElementById("valStartH").textContent = `${energyState.startH.toFixed(1)} m`;
+
+      const g = energyState.gravityEnabled ? energyState.gravity : 0;
+      const v0 = energyState.initV;
+      energyState.vx = v0 * Math.cos(sample.theta);
+      energyState.vy = v0 * Math.sin(sample.theta);
+
+      energyState.isAirborne = false;
+      energyState.landingCooldown = 0;
+      energyState.landingFlash = 0;
+      energyState.thermalEnergy = 0;
+      energyState.totalInitialEnergy =
+        energyState.mass * g * energyState.y + 0.5 * energyState.mass * v0 * v0;
+      energyState.simTime = 0;
+      energyState.trail = [];
+      energyState.particles = [];
+      energyState.history = [];
+      energyState.flightSnapshot = null;
+      energyState.hasFlightRecorded = false;
+      document.getElementById("btnSlowMoReplay").classList.add("hidden");
+    }
+
+    // =========================================================================
+    // TRACK EDITOR: DRAG, ADD, DELETE, UNDO/REDO, TEMPLATES
+    // =========================================================================
+    function pushTrackHistory() {
+      energyState.undoStack.push(JSON.stringify(energyState.controlPoints));
+      if (energyState.undoStack.length > 25) energyState.undoStack.shift();
+      energyState.redoStack = [];
+      updateUndoRedoButtons();
+    }
+
+    function updateUndoRedoButtons() {
+      document.getElementById("btnUndoTrack").disabled = energyState.undoStack.length === 0;
+      document.getElementById("btnRedoTrack").disabled = energyState.redoStack.length === 0;
+      document.getElementById("btnDeletePt").disabled =
+        energyState.selectedPtIndex <= 0 ||
+        energyState.selectedPtIndex >= energyState.controlPoints.length - 1 ||
+        energyState.controlPoints.length <= 3;
+    }
+
+    function undoTrack() {
+      if (energyState.undoStack.length === 0) return;
+      energyState.redoStack.push(JSON.stringify(energyState.controlPoints));
+      energyState.controlPoints = JSON.parse(energyState.undoStack.pop());
+      energyState.selectedPtIndex = -1;
+      initCarOnTrack(energyState.x);
+      updateUndoRedoButtons();
+    }
+
+    function redoTrack() {
+      if (energyState.redoStack.length === 0) return;
+      energyState.undoStack.push(JSON.stringify(energyState.controlPoints));
+      energyState.controlPoints = JSON.parse(energyState.redoStack.pop());
+      energyState.selectedPtIndex = -1;
+      initCarOnTrack(energyState.x);
+      updateUndoRedoButtons();
+    }
+
+    function deleteSelectedPoint() {
+      const idx = energyState.selectedPtIndex;
+      if (idx > 0 && idx < energyState.controlPoints.length - 1 && energyState.controlPoints.length > 3) {
+        pushTrackHistory();
+        energyState.controlPoints.splice(idx, 1);
+        energyState.selectedPtIndex = -1;
+        initCarOnTrack(energyState.x);
+        updateUndoRedoButtons();
+      }
+    }
+
+    function saveCustomTrack() {
+      localStorage.setItem("vlab_custom_track", JSON.stringify(energyState.controlPoints));
+      const btn = document.getElementById("btnLoadSaved");
+      btn.textContent = "✓ Saved!";
+      setTimeout(() => (btn.textContent = "📂 Load Saved"), 1200);
+    }
+
+    function loadSavedTrack() {
+      const raw = localStorage.getItem("vlab_custom_track");
+      if (!raw) return;
+      pushTrackHistory();
+      energyState.controlPoints = JSON.parse(raw);
+      document.getElementById("selectTrackTemplate").value = "custom";
+      initCarOnTrack();
+    }
+
+    function loadTrackTemplate(key) {
+      if (!TRACK_TEMPLATES[key]) return;
+      pushTrackHistory();
+      energyState.controlPoints = JSON.parse(JSON.stringify(TRACK_TEMPLATES[key]));
+      energyState.selectedPtIndex = -1;
+      initCarOnTrack();
+    }
+
+    function toggleTrackEditMode() {
+      energyState.editMode = !energyState.editMode;
+      const btn = document.getElementById("btnToggleEdit");
+      const editBar = document.getElementById("editTrackControls");
+      const hint = document.getElementById("trackHintText");
+
+      if (energyState.editMode) {
+        energyState.isPlaying = false;
+        document.getElementById("btnPlayEnergy").textContent = "▶ Resume Sim";
+        btn.textContent = "✓ Done Editing (Run Sim)";
+        btn.className = "rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition";
+        editBar.classList.remove("hidden");
+        editBar.classList.add("flex");
+        hint.textContent =
+          "EDIT MODE: Drag white control handles to reshape hills & crests. Click anywhere on the track curve to add a new control node!";
+        updateUndoRedoButtons();
+      } else {
+        btn.textContent = "✏️ Edit Track Geometry";
+        btn.className = "rounded-lg border border-indigo-300 bg-indigo-50 px-3.5 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition";
+        editBar.classList.add("hidden");
+        editBar.classList.remove("flex");
+        hint.textContent =
+          "Drag the red supercar along the track or adjust initial speed v₀. At high-speed crests where N ≤ 0, the car launches into free parabolic flight!";
+        initCarOnTrack(energyState.x);
+        energyState.isPlaying = true;
+        document.getElementById("btnPlayEnergy").textContent = "Ⅱ Pause";
+      }
+    }
+
+    // =========================================================================
+    // CONTROL LISTENERS
+    // =========================================================================
+    document.getElementById("sliderMass").addEventListener("input", (e) => {
+      energyState.mass = parseFloat(e.target.value);
+      document.getElementById("valMass").textContent = `${energyState.mass.toFixed(1)} kg`;
+      initCarOnTrack(energyState.x);
+    });
+
+    document.getElementById("sliderStartH").addEventListener("input", (e) => {
+      energyState.startH = parseFloat(e.target.value);
+      document.getElementById("valStartH").textContent = `${energyState.startH.toFixed(1)} m`;
+      initCarOnTrack();
+    });
+
+    document.getElementById("sliderInitV").addEventListener("input", (e) => {
+      energyState.initV = parseFloat(e.target.value);
+      document.getElementById("valInitV").textContent = `${energyState.initV.toFixed(1)} m/s`;
+      initCarOnTrack(energyState.x);
+    });
+
+    document.getElementById("sliderGravity").addEventListener("input", (e) => {
+      energyState.gravity = parseFloat(e.target.value);
+      document.getElementById("valGravity").textContent = `${energyState.gravity.toFixed(1)} m/s²`;
+      initCarOnTrack(energyState.x);
+    });
+
+    document.getElementById("chkGravity").addEventListener("change", (e) => {
+      energyState.gravityEnabled = e.target.checked;
+      document.getElementById("valGravity").textContent = energyState.gravityEnabled
+        ? `${energyState.gravity.toFixed(1)} m/s²`
+        : "0.0 m/s² (Zero-G)";
+      initCarOnTrack(energyState.x);
+    });
+
+    document.getElementById("sliderFriction").addEventListener("input", (e) => {
+      energyState.friction = parseFloat(e.target.value);
+      document.getElementById("valFriction").textContent =
+        energyState.friction === 0 ? "0.00 (Ideal)" : energyState.friction.toFixed(2);
+      initCarOnTrack(energyState.x);
+    });
+
+    document.getElementById("chkFriction").addEventListener("change", (e) => {
+      energyState.frictionEnabled = e.target.checked;
+      initCarOnTrack(energyState.x);
+    });
+
+    document.getElementById("selectSpeed").addEventListener("change", (e) => {
+      energyState.speedMult = parseFloat(e.target.value);
+    });
+
+    document.getElementById("chkFollowCam").addEventListener("change", (e) => {
+      energyState.followCam = e.target.checked;
+    });
+
+    document.getElementById("chkVecVelocity").addEventListener("change", (e) => (energyState.showVelocity = e.target.checked));
+    document.getElementById("chkVecForces").addEventListener("change", (e) => (energyState.showForces = e.target.checked));
+    document.getElementById("chkVecAccel").addEventListener("change", (e) => (energyState.showAccel = e.target.checked));
+    document.getElementById("chkShowTrail").addEventListener("change", (e) => (energyState.showTrail = e.target.checked));
+
+    function togglePlayEnergy() {
+      if (energyState.editMode) toggleTrackEditMode();
+      energyState.isPlaying = !energyState.isPlaying;
+      document.getElementById("btnPlayEnergy").textContent = energyState.isPlaying ? "Ⅱ Pause" : "▶ Play";
+    }
+
+    function restartCart() {
+      if (energyState.editMode) toggleTrackEditMode();
+      initCarOnTrack();
+      energyState.isPlaying = true;
+      document.getElementById("btnPlayEnergy").textContent = "Ⅱ Pause";
+    }
+
+    function stepEnergy() {
+      energyState.isPlaying = false;
+      document.getElementById("btnPlayEnergy").textContent = "▶ Play";
+      stepEnergyPhysics(0.04);
+    }
+
+    function triggerFlightReplay() {
+      if (!energyState.flightSnapshot) return;
+      const snap = energyState.flightSnapshot;
+      energyState.x = snap.x;
+      energyState.y = snap.y;
+      energyState.vx = snap.vx;
+      energyState.vy = snap.vy;
+      energyState.isAirborne = true;
+      energyState.thermalEnergy = snap.thermal;
+      energyState.trail = [];
+      energyState.speedMult = 0.25;
+      document.getElementById("selectSpeed").value = "0.25";
+      energyState.isPlaying = true;
+      document.getElementById("btnPlayEnergy").textContent = "Ⅱ Pause";
+    }
+
+    // =========================================================================
+    // CANVAS CAMERA & MOUSE INTERACTION (TRACK EDITOR + CAR DRAGGING)
+    // =========================================================================
+    const eCanvas = document.getElementById("energyCanvas");
+    const eCtx = eCanvas.getContext("2d");
+
+    function getCameraTransform() {
+      const viewLeft = 245;
+      const viewW = 885;
+      const viewTop = 25;
+      const viewH = 365;
+
+      const baseScaleX = viewW / WORLD_W;
+      const baseScaleY = viewH / WORLD_H;
+      const scale = Math.min(baseScaleX, baseScaleY) * energyState.camZoom;
+
+      const centerX = viewLeft + viewW * 0.5;
+      const groundY = viewTop + viewH - 18;
+
+      const camOffsetX = energyState.followCam && !energyState.editMode ? (energyState.camX - WORLD_W / 2) * scale : 0;
+      const camOffsetY = energyState.followCam && !energyState.editMode ? Math.max(0, energyState.camY - 6) * scale * 0.65 : 0;
+
+      return {
+        scale,
+        toPxX: (wx) => centerX + (wx - WORLD_W / 2) * scale - camOffsetX,
+        toPxY: (wy) => groundY - wy * scale + camOffsetY,
+        toWorldX: (px) => WORLD_W / 2 + (px + camOffsetX - centerX) / scale,
+        toWorldY: (py) => (groundY + camOffsetY - py) / scale
+      };
+    }
+
+    eCanvas.addEventListener("pointerdown", (e) => {
+      const rect = eCanvas.getBoundingClientRect();
+      const px = (e.clientX - rect.left) * (eCanvas.width / rect.width);
+      const py = (e.clientY - rect.top) * (eCanvas.height / rect.height);
+      const cam = getCameraTransform();
+
+      if (energyState.editMode) {
+        for (let i = 0; i < energyState.controlPoints.length; i++) {
+          const pt = energyState.controlPoints[i];
+          if (Math.hypot(px - cam.toPxX(pt.x), py - cam.toPxY(pt.y)) < 16) {
+            pushTrackHistory();
+            energyState.selectedPtIndex = i;
+            energyState.draggingPtIndex = i;
+            updateUndoRedoButtons();
+            return;
+          }
+        }
+
+        const wx = cam.toWorldX(px);
+        const wy = cam.toWorldY(py);
+        if (wx > 0.5 && wx < WORLD_W - 0.5 && wy >= 0.1 && wy <= 13.5) {
+          const sample = sampleTrackAtX(wx);
+          if (Math.abs(py - cam.toPxY(sample.y)) < 22) {
+            pushTrackHistory();
+            const newPt = { x: Number(wx.toFixed(2)), y: Number(wy.toFixed(2)) };
+            let insertIdx = energyState.controlPoints.findIndex((p) => p.x > wx);
+            if (insertIdx === -1) insertIdx = energyState.controlPoints.length;
+            energyState.controlPoints.splice(insertIdx, 0, newPt);
+            energyState.selectedPtIndex = insertIdx;
+            energyState.draggingPtIndex = insertIdx;
+            document.getElementById("selectTrackTemplate").value = "custom";
+            rebuildSplineCache();
+            updateUndoRedoButtons();
+          }
+        }
+        return;
+      }
+
+      const carPxX = cam.toPxX(energyState.x);
+      const carPxY = cam.toPxY(energyState.y);
+      if (Math.hypot(px - carPxX, py - carPxY) < 42) {
+        energyState.draggingCart = true;
+        eCanvas.style.cursor = "grabbing";
+      }
+    });
+
+    window.addEventListener("pointermove", (e) => {
+      const rect = eCanvas.getBoundingClientRect();
+      const px = (e.clientX - rect.left) * (eCanvas.width / rect.width);
+      const py = (e.clientY - rect.top) * (eCanvas.height / rect.height);
+      const cam = getCameraTransform();
+
+      if (energyState.editMode && energyState.draggingPtIndex !== -1) {
+        const idx = energyState.draggingPtIndex;
+        const pts = energyState.controlPoints;
+        const minX = idx === 0 ? 0 : pts[idx - 1].x + 0.6;
+        const maxX = idx === pts.length - 1 ? WORLD_W : pts[idx + 1].x - 0.6;
+
+        pts[idx].x = Number(Math.max(minX, Math.min(maxX, cam.toWorldX(px))).toFixed(2));
+        pts[idx].y = Number(Math.max(0.2, Math.min(13.2, cam.toWorldY(py))).toFixed(2));
+        document.getElementById("selectTrackTemplate").value = "custom";
+        rebuildSplineCache();
+        const s = sampleTrackAtX(energyState.x);
+        energyState.y = s.y;
+        return;
+      }
+
+      if (energyState.draggingCart) {
+        const minX = splineSamples[0]?.x ?? 0;
+        const maxX = splineSamples[splineSamples.length - 1]?.x ?? WORLD_W;
+        const newX = Math.max(minX, Math.min(maxX, cam.toWorldX(px)));
+        const sample = sampleTrackAtX(newX);
+
+        energyState.x = newX;
+        energyState.y = sample.y;
+        energyState.startH = Number(sample.y.toFixed(1));
+        energyState.isAirborne = false;
+        energyState.vx = energyState.initV * Math.cos(sample.theta);
+        energyState.vy = energyState.initV * Math.sin(sample.theta);
+        energyState.thermalEnergy = 0;
+        const g = energyState.gravityEnabled ? energyState.gravity : 0;
+        energyState.totalInitialEnergy =
+          energyState.mass * g * energyState.y + 0.5 * energyState.mass * energyState.initV * energyState.initV;
+        energyState.trail = [];
+
+        document.getElementById("sliderStartH").value = Math.min(11, Math.max(0.5, energyState.startH));
+        document.getElementById("valStartH").textContent = `${energyState.startH.toFixed(1)} m`;
+      }
+    });
+
+    window.addEventListener("pointerup", () => {
+      energyState.draggingPtIndex = -1;
+      energyState.draggingCart = false;
+      eCanvas.style.cursor = energyState.editMode ? "crosshair" : "grab";
+    });
+
+    // =========================================================================
+    // PHYSICS STEP: CURVATURE NORMAL FORCE, TAKEOFF & PROJECTILE FLIGHT
+    // =========================================================================
+    let latestTelemetry = {
+      ke: 0,
+      pe: 0,
+      normalForce: 0,
+      accel: 0,
+      kappa: 0,
+      speed: 0
+    };
+
+    function stepEnergyPhysics(dt) {
+      if (energyState.draggingCart || energyState.editMode) return;
+
+      const m = energyState.mass;
+      const g = energyState.gravityEnabled ? energyState.gravity : 0;
+      const mu = energyState.frictionEnabled ? energyState.friction : 0;
+
+      const subSteps = 10;
+      const subDt = dt / subSteps;
+
+      for (let s = 0; s < subSteps; s++) {
+        energyState.simTime += subDt;
+        if (energyState.landingCooldown > 0) energyState.landingCooldown -= subDt;
+        if (energyState.landingFlash > 0) energyState.landingFlash -= subDt;
+
+        const minTrackX = splineSamples[0]?.x ?? 0;
+        const maxTrackX = splineSamples[splineSamples.length - 1]?.x ?? WORLD_W;
+
+        if (!energyState.isAirborne) {
+          const sample = sampleTrackAtX(energyState.x);
+          const cosT = Math.cos(sample.theta);
+          const sinT = Math.sin(sample.theta);
+
+          let vTan = Math.hypot(energyState.vx, energyState.vy) * Math.sign(energyState.vx || 1);
+          const normalForce = m * (g * cosT + vTan * vTan * sample.kappa);
+
+          if (g > 0 && normalForce <= 0 && Math.abs(vTan) > 0.6 && energyState.landingCooldown <= 0) {
+            energyState.isAirborne = true;
+            energyState.y = sample.y + 0.04;
+            energyState.vx = vTan * cosT;
+            energyState.vy = vTan * sinT;
+
+            energyState.flightSnapshot = {
+              x: energyState.x,
+              y: energyState.y,
+              vx: energyState.vx,
+              vy: energyState.vy,
+              thermal: energyState.thermalEnergy
+            };
+            energyState.hasFlightRecorded = true;
+            document.getElementById("btnSlowMoReplay").classList.remove("hidden");
+            continue;
+          }
+
+          let aTan = -g * sinT;
+          if (mu > 0 && Math.abs(vTan) > 0.002 && normalForce > 0) {
+            aTan -= Math.sign(vTan) * mu * (normalForce / m);
+          }
+
+          const ds = Math.abs(vTan * subDt);
+          if (mu > 0 && normalForce > 0) {
+            energyState.thermalEnergy += mu * normalForce * ds;
+          }
+
+          vTan += aTan * subDt;
+          energyState.x += vTan * cosT * subDt;
+
+          if (energyState.x <= minTrackX) {
+            energyState.x = minTrackX;
+            vTan = Math.abs(vTan);
+          } else if (energyState.x >= maxTrackX) {
+            energyState.x = maxTrackX;
+            vTan = -Math.abs(vTan);
+          }
+
+          const updated = sampleTrackAtX(energyState.x);
+          energyState.y = updated.y;
+
+          const pe = m * g * energyState.y;
+          const maxE = energyState.totalInitialEnergy;
+          if (energyState.thermalEnergy > maxE - pe) {
+            energyState.thermalEnergy = Math.max(0, maxE - pe);
+          }
+          const exactKE = Math.max(0, maxE - pe - energyState.thermalEnergy);
+          const exactSpeed = Math.sqrt((2 * exactKE) / m);
+          const dir = Math.sign(vTan || 1);
+
+          energyState.vx = dir * exactSpeed * Math.cos(updated.theta);
+          energyState.vy = dir * exactSpeed * Math.sin(updated.theta);
+          energyState.wheelAngle += (dir * exactSpeed * subDt) / 0.35;
+
+          latestTelemetry = {
+            ke: exactKE,
+            pe,
+            normalForce: Math.max(0, normalForce),
+            accel: Math.abs(aTan),
+            kappa: updated.kappa,
+            speed: exactSpeed
+          };
+        } else {
+          // Projectile motion: x(t) = x0 + vx*t, y(t) = y0 + vy*t - 0.5*g*t^2
+          energyState.x += energyState.vx * subDt;
+          energyState.y += energyState.vy * subDt - 0.5 * g * subDt * subDt;
+          energyState.vy -= g * subDt;
+
+          const airSpeed = Math.hypot(energyState.vx, energyState.vy);
+          energyState.wheelAngle += (Math.sign(energyState.vx || 1) * airSpeed * subDt) / 0.35;
+
+          if (energyState.x < minTrackX) {
+            energyState.x = minTrackX;
+            energyState.vx = Math.abs(energyState.vx) * 0.8;
+          } else if (energyState.x > maxTrackX) {
+            energyState.x = maxTrackX;
+            energyState.vx = -Math.abs(energyState.vx) * 0.8;
+          }
+
+          const trackBelow = sampleTrackAtX(energyState.x);
+          if (energyState.y <= trackBelow.y && energyState.vy <= 0) {
+            const tx = Math.cos(trackBelow.theta);
+            const ty = Math.sin(trackBelow.theta);
+            const vTangentLanding = energyState.vx * tx + energyState.vy * ty;
+            const vNormalImpact = Math.abs(-energyState.vx * ty + energyState.vy * tx);
+
+            const impactLoss = 0.5 * m * vNormalImpact * vNormalImpact;
+            energyState.thermalEnergy += impactLoss;
+
+            energyState.y = trackBelow.y;
+            energyState.vx = vTangentLanding * tx;
+            energyState.vy = vTangentLanding * ty;
+            energyState.isAirborne = false;
+            energyState.landingCooldown = 0.18;
+            energyState.landingFlash = 0.5;
+            energyState.suspensionOffset = 4.5;
+            energyState.shakeIntensity = Math.min(10, vNormalImpact * 0.9);
+
+            for (let p = 0; p < 14; p++) {
+              energyState.particles.push({
+                x: energyState.x,
+                y: energyState.y + 0.15,
+                vx: (Math.random() - 0.5) * 6,
+                vy: Math.random() * 4 + 1,
+                life: 0.45,
+                color: "#facc15"
+              });
+            }
+          }
+
+          const pe = m * g * Math.max(0, energyState.y);
+          const ke = 0.5 * m * airSpeed * airSpeed;
+          latestTelemetry = {
+            ke,
+            pe,
+            normalForce: 0,
+            accel: g,
+            kappa: 0,
+            speed: airSpeed
+          };
+        }
+      }
+
+      energyState.suspensionOffset *= 0.82;
+      energyState.shakeIntensity *= 0.85;
+
+      const targetCamX = energyState.x;
+      const targetCamY = Math.max(4.5, energyState.y);
+      energyState.camX += (targetCamX - energyState.camX) * 0.12;
+      energyState.camY += (targetCamY - energyState.camY) * 0.12;
+
+      const desiredZoom = energyState.y > 11 ? Math.max(0.68, 11 / energyState.y) : 1.0;
+      energyState.camZoom += (desiredZoom - energyState.camZoom) * 0.08;
+
+      if (energyState.isPlaying) {
+        energyState.trail.push({
+          x: energyState.x,
+          y: energyState.y,
+          air: energyState.isAirborne,
+          speed: latestTelemetry.speed
+        });
+        if (energyState.trail.length > 140) energyState.trail.shift();
+
+        if (latestTelemetry.speed > 7.5) {
+          energyState.particles.push({
+            x: energyState.x - Math.sign(energyState.vx || 1) * 0.55,
+            y: energyState.y + 0.22,
+            vx: -energyState.vx * 0.15 + (Math.random() - 0.5),
+            vy: (Math.random() - 0.5) * 0.8,
+            life: 0.35,
+            color: latestTelemetry.speed > 13 ? "#38bdf8" : "#f97316"
+          });
+        }
+
+        const lastHist = energyState.history[energyState.history.length - 1];
+        if (!lastHist || energyState.simTime - lastHist.t >= 0.05) {
+          energyState.history.push({
+            t: energyState.simTime,
+            ke: latestTelemetry.ke,
+            pe: latestTelemetry.pe,
+            thermal: energyState.thermalEnergy,
+            total: latestTelemetry.ke + latestTelemetry.pe + energyState.thermalEnergy,
+            speed: latestTelemetry.speed,
+            normal: latestTelemetry.normalForce
+          });
+          if (energyState.history.length > 240) energyState.history.shift();
+        }
+      }
+
+      for (let i = energyState.particles.length - 1; i >= 0; i--) {
+        const pt = energyState.particles[i];
+        pt.x += pt.vx * dt;
+        pt.y += pt.vy * dt;
+        pt.life -= dt;
+        if (pt.life <= 0) energyState.particles.splice(i, 1);
+      }
+    }
+
+    // =========================================================================
+    // LUXURY RED SPORTS CAR RENDERER (CANVAS 2D)
+    // =========================================================================
+    function drawLuxurySportsCar(ctx, px, py, angleRad, wheelAngle, speed, isAirborne, suspY) {
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(-angleRad);
+
+      if (speed > 10) {
+        const glowAlpha = Math.min(0.45, (speed - 10) / 18);
+        const grad = ctx.createLinearGradient(-75, 0, 35, 0);
+        grad.addColorStop(0, "rgba(56, 189, 248, 0)");
+        grad.addColorStop(1, isAirborne ? `rgba(250, 204, 21, ${glowAlpha})` : `rgba(56, 189, 248, ${glowAlpha})`);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(-22, -12, 55, 13, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (!isAirborne) {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+        ctx.beginPath();
+        ctx.ellipse(0, -1, 34, 4.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const bodyOffsetY = suspY;
+
+      // Rear Carbon-Fiber Spoiler Wing
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.moveTo(-31, -18 + bodyOffsetY);
+      ctx.lineTo(-35, -26 + bodyOffsetY);
+      ctx.lineTo(-25, -26 + bodyOffsetY);
+      ctx.lineTo(-24, -18 + bodyOffsetY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillRect(-37, -27 + bodyOffsetY, 14, 2.5);
+
+      // Metallic Crimson Supercar Chassis
+      const bodyGrad = ctx.createLinearGradient(0, -26 + bodyOffsetY, 0, -5 + bodyOffsetY);
+      bodyGrad.addColorStop(0, "#ff2a2a");
+      bodyGrad.addColorStop(0.5, "#dc2626");
+      bodyGrad.addColorStop(1, "#7f1d1d");
+
+      ctx.fillStyle = bodyGrad;
+      ctx.strokeStyle = "#fca5a5";
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-33, -7 + bodyOffsetY);
+      ctx.lineTo(-33, -17 + bodyOffsetY);
+      ctx.quadraticCurveTo(-20, -21 + bodyOffsetY, -10, -25 + bodyOffsetY);
+      ctx.quadraticCurveTo(4, -27 + bodyOffsetY, 15, -18 + bodyOffsetY);
+      ctx.quadraticCurveTo(28, -16 + bodyOffsetY, 35, -9 + bodyOffsetY);
+      ctx.lineTo(35, -6 + bodyOffsetY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Side Air Intake Scoop
+      ctx.fillStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.moveTo(-8, -10 + bodyOffsetY);
+      ctx.lineTo(3, -15 + bodyOffsetY);
+      ctx.lineTo(3, -8 + bodyOffsetY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Tinted Glass Cockpit Canopy
+      const glassGrad = ctx.createLinearGradient(-8, -24 + bodyOffsetY, 12, -16 + bodyOffsetY);
+      glassGrad.addColorStop(0, "#0f172a");
+      glassGrad.addColorStop(0.5, "#38bdf8");
+      glassGrad.addColorStop(1, "#0284c7");
+      ctx.fillStyle = glassGrad;
+      ctx.beginPath();
+      ctx.moveTo(-9, -18 + bodyOffsetY);
+      ctx.quadraticCurveTo(1, -25 + bodyOffsetY, 13, -17 + bodyOffsetY);
+      ctx.closePath();
+      ctx.fill();
+
+      // LED Headlight Beam
+      ctx.fillStyle = "#fef08a";
+      ctx.beginPath();
+      ctx.ellipse(32, -10 + bodyOffsetY, 3.2, 1.6, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (speed > 2) {
+        const beamGrad = ctx.createLinearGradient(34, -10 + bodyOffsetY, 75, -6 + bodyOffsetY);
+        beamGrad.addColorStop(0, "rgba(254, 240, 138, 0.45)");
+        beamGrad.addColorStop(1, "rgba(254, 240, 138, 0)");
+        ctx.fillStyle = beamGrad;
+        ctx.beginPath();
+        ctx.moveTo(34, -11 + bodyOffsetY);
+        ctx.lineTo(75, -18 + bodyOffsetY);
+        ctx.lineTo(75, 0 + bodyOffsetY);
+        ctx.lineTo(34, -9 + bodyOffsetY);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Rotating Alloy Wheels
+      [-20, 20].forEach((wx) => {
+        ctx.save();
+        ctx.translate(wx, -7);
+        ctx.rotate(wheelAngle);
+
+        ctx.fillStyle = "#090d16";
+        ctx.beginPath();
+        ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "#cbd5e1";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, 4.5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        for (let sp = 0; sp < 5; sp++) {
+          const a = (sp * Math.PI * 2) / 5;
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(a) * 4.5, Math.sin(a) * 4.5);
+        }
+        ctx.stroke();
+
+        ctx.fillStyle = "#ef4444";
+        ctx.beginPath();
+        ctx.arc(1.5, -1.5, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      });
+
+      ctx.restore();
+    }
+
+    function drawArrow(ctx, x1, y1, x2, y2, color, label) {
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.hypot(dx, dy);
+      if (len < 4) return;
+
+      const angle = Math.atan2(dy, dx);
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2.5;
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - 9 * Math.cos(angle - 0.4), y2 - 9 * Math.sin(angle - 0.4));
+      ctx.lineTo(x2 - 9 * Math.cos(angle + 0.4), y2 - 9 * Math.sin(angle + 0.4));
+      ctx.closePath();
+      ctx.fill();
+
+      if (label) {
+        ctx.font = "bold 11px sans-serif";
+        ctx.fillText(label, x2 + 6, y2 - 4);
+      }
+      ctx.restore();
+    }
+
+    function renderEnergyCanvas() {
+      const m = energyState.mass;
+      const g = energyState.gravityEnabled ? energyState.gravity : 0;
+      const ke = latestTelemetry.ke;
+      const pe = latestTelemetry.pe;
+      const thermal = energyState.thermalEnergy;
+      const totalE = ke + pe + thermal;
+      const speed = latestTelemetry.speed;
+      const normalN = latestTelemetry.normalForce;
+      const kappa = latestTelemetry.kappa;
+
+      const badgeEl = document.getElementById("badgeCarState");
+      if (energyState.editMode) {
+        badgeEl.textContent = "EDIT MODE — DRAG / CLICK TRACK";
+        badgeEl.className = "rounded-full bg-indigo-100 px-3 py-1 text-xs font-extrabold text-indigo-800";
+      } else if (energyState.isAirborne) {
+        badgeEl.textContent = "🚀 AIRBORNE — FREE PROJECTILE FLIGHT!";
+        badgeEl.className = "airborne-alert rounded-full border-2 bg-red-100 px-3 py-1 text-xs font-extrabold text-red-700";
+      } else if (energyState.landingFlash > 0) {
+        badgeEl.textContent = "💥 TOUCHDOWN — CONTACT RESTORED";
+        badgeEl.className = "rounded-full bg-amber-100 px-3 py-1 text-xs font-extrabold text-amber-800";
+      } else if (speed > 13) {
+        badgeEl.textContent = "⚡ EXTREME SPEED";
+        badgeEl.className = "rounded-full bg-purple-100 px-3 py-1 text-xs font-extrabold text-purple-800";
+      } else if (speed > 8) {
+        badgeEl.textContent = "🔥 HIGH SPEED";
+        badgeEl.className = "rounded-full bg-blue-100 px-3 py-1 text-xs font-extrabold text-blue-800";
+      } else {
+        badgeEl.textContent = "✓ ON TRACK — NORMAL SPEED";
+        badgeEl.className = "rounded-full bg-emerald-100 px-3 py-1 text-xs font-extrabold text-emerald-800";
+      }
+
+      document.getElementById("cardKE").textContent = `${ke.toFixed(1)} J`;
+      document.getElementById("cardPE").textContent = `${pe.toFixed(1)} J`;
+      document.getElementById("cardThermal").textContent = `${thermal.toFixed(1)} J`;
+      document.getElementById("cardTotalE").textContent = `${totalE.toFixed(1)} J`;
+      document.getElementById("cardNormalN").textContent = `${normalN.toFixed(1)} N`;
+      document.getElementById("cardContactSub").textContent = energyState.isAirborne
+        ? "Airborne (N = 0 N)"
+        : "Contact maintained (N > 0)";
+      document.getElementById("cardContactSub").className = energyState.isAirborne
+        ? "text-[10px] font-bold text-red-600"
+        : "text-[10px] font-semibold text-emerald-600";
+
+      document.getElementById("cardSpeed").textContent = `${speed.toFixed(2)} m/s`;
+      document.getElementById("cardCurrH").textContent = `h = ${Math.max(0, energyState.y).toFixed(2)} m | κ = ${kappa.toFixed(2)} m⁻¹`;
+
+      document.getElementById("derivE0").textContent =
+        `= (${m.toFixed(1)}×${g.toFixed(1)}×${energyState.startH.toFixed(1)}) + ½(${m.toFixed(1)})(${energyState.initV.toFixed(1)})² = ${energyState.totalInitialEnergy.toFixed(2)} J`;
+      document.getElementById("derivPE").textContent =
+        `PE = ${m.toFixed(1)} × ${g.toFixed(1)} × ${Math.max(0, energyState.y).toFixed(2)} = ${pe.toFixed(2)} J`;
+      document.getElementById("derivKE").textContent =
+        `KE = 0.5 × ${m.toFixed(1)} × (${speed.toFixed(2)})² = ${ke.toFixed(2)} J`;
+      document.getElementById("derivNormal").textContent =
+        `N = ${normalN.toFixed(2)} N | a = ${latestTelemetry.accel.toFixed(2)} m/s²`;
+      document.getElementById("derivFlight").textContent = energyState.isAirborne
+        ? `AIRBORNE: vx = ${energyState.vx.toFixed(2)} m/s, vy = ${energyState.vy.toFixed(2)} m/s`
+        : "Constrained to spline track (N > 0)";
+
+      eCtx.clearRect(0, 0, eCanvas.width, eCanvas.height);
+
+      const bgGrad = eCtx.createLinearGradient(0, 0, 0, eCanvas.height);
+      bgGrad.addColorStop(0, "#090d16");
+      bgGrad.addColorStop(1, "#111827");
+      eCtx.fillStyle = bgGrad;
+      eCtx.fillRect(0, 0, eCanvas.width, eCanvas.height);
+
+      eCtx.save();
+      if (energyState.shakeIntensity > 0.2 && !energyState.editMode) {
+        const sx = (Math.random() - 0.5) * energyState.shakeIntensity;
+        const sy = (Math.random() - 0.5) * energyState.shakeIntensity;
+        eCtx.translate(sx, sy);
+      }
+
+      const cam = getCameraTransform();
+
+      eCtx.save();
+      eCtx.beginPath();
+      eCtx.rect(238, 0, eCanvas.width - 238, eCanvas.height);
+      eCtx.clip();
+
+      for (let h = 0; h <= 14; h += 2) {
+        const py = cam.toPxY(h);
+        eCtx.strokeStyle = h === 0 ? "rgba(148, 163, 184, 0.55)" : "rgba(51, 65, 85, 0.45)";
+        eCtx.lineWidth = h === 0 ? 2 : 1;
+        eCtx.setLineDash(h === 0 ? [] : [4, 6]);
+        eCtx.beginPath();
+        eCtx.moveTo(240, py);
+        eCtx.lineTo(eCanvas.width - 15, py);
+        eCtx.stroke();
+
+        eCtx.fillStyle = "#64748b";
+        eCtx.font = "11px monospace";
+        eCtx.textAlign = "left";
+        eCtx.fillText(`${h}m`, 246, py - 4);
+      }
+      eCtx.setLineDash([]);
+
+      eCtx.strokeStyle = "rgba(71, 85, 105, 0.45)";
+      eCtx.lineWidth = 2;
+      const groundZeroPx = cam.toPxY(0);
+      for (let i = 0; i < splineSamples.length; i += 18) {
+        const sp = splineSamples[i];
+        const px = cam.toPxX(sp.x);
+        const py = cam.toPxY(sp.y);
+        if (py < groundZeroPx) {
+          eCtx.beginPath();
+          eCtx.moveTo(px, py + 4);
+          eCtx.lineTo(px, groundZeroPx);
+          eCtx.stroke();
+        }
+      }
+
+      if (splineSamples.length > 1) {
+        eCtx.strokeStyle = energyState.editMode ? "rgba(129, 140, 248, 0.35)" : "rgba(56, 189, 248, 0.25)";
+        eCtx.lineWidth = 11;
+        eCtx.lineCap = "round";
+        eCtx.beginPath();
+        splineSamples.forEach((pt, idx) => {
+          const px = cam.toPxX(pt.x);
+          const py = cam.toPxY(pt.y);
+          if (idx === 0) eCtx.moveTo(px, py);
+          else eCtx.lineTo(px, py);
+        });
+        eCtx.stroke();
+
+        eCtx.strokeStyle = energyState.editMode ? "#818cf8" : "#cbd5e1";
+        eCtx.lineWidth = 4.5;
+        eCtx.beginPath();
+        splineSamples.forEach((pt, idx) => {
+          const px = cam.toPxX(pt.x);
+          const py = cam.toPxY(pt.y);
+          if (idx === 0) eCtx.moveTo(px, py);
+          else eCtx.lineTo(px, py);
+        });
+        eCtx.stroke();
+      }
+
+      if (energyState.editMode) {
+        energyState.controlPoints.forEach((pt, idx) => {
+          const px = cam.toPxX(pt.x);
+          const py = cam.toPxY(pt.y);
+          const isSel = idx === energyState.selectedPtIndex;
+
+          eCtx.fillStyle = isSel ? "#facc15" : "#ffffff";
+          eCtx.strokeStyle = isSel ? "#b45309" : "#4f46e5";
+          eCtx.lineWidth = 3;
+          eCtx.beginPath();
+          eCtx.arc(px, py, isSel ? 9 : 7, 0, Math.PI * 2);
+          eCtx.fill();
+          eCtx.stroke();
+
+          eCtx.fillStyle = "#e2e8f0";
+          eCtx.font = "bold 10px monospace";
+          eCtx.textAlign = "center";
+          eCtx.fillText(`P${idx + 1} (${pt.y.toFixed(1)}m)`, px, py - 13);
+        });
+      }
+
+      if (energyState.showTrail && energyState.trail.length > 1) {
+        for (let i = 1; i < energyState.trail.length; i++) {
+          const prev = energyState.trail[i - 1];
+          const curr = energyState.trail[i];
+          const alpha = (i / energyState.trail.length) * 0.85;
+          eCtx.strokeStyle = curr.air
+            ? `rgba(250, 204, 21, ${alpha})`
+            : `rgba(56, 189, 248, ${alpha})`;
+          eCtx.lineWidth = curr.air ? 3.5 : 2.5;
+          eCtx.beginPath();
+          eCtx.moveTo(cam.toPxX(prev.x), cam.toPxY(prev.y));
+          eCtx.lineTo(cam.toPxX(curr.x), cam.toPxY(curr.y));
+          eCtx.stroke();
+        }
+      }
+
+      energyState.particles.forEach((pt) => {
+        eCtx.fillStyle = pt.color;
+        eCtx.globalAlpha = Math.max(0, pt.life * 2);
+        eCtx.beginPath();
+        eCtx.arc(cam.toPxX(pt.x), cam.toPxY(pt.y), 3, 0, Math.PI * 2);
+        eCtx.fill();
+        eCtx.globalAlpha = 1;
+      });
+
+      const carPxX = cam.toPxX(energyState.x);
+      const carPxY = cam.toPxY(energyState.y);
+      const carAngle = energyState.isAirborne
+        ? Math.atan2(energyState.vy, energyState.vx || 0.01)
+        : sampleTrackAtX(energyState.x).theta;
+
+      drawLuxurySportsCar(
+        eCtx,
+        carPxX,
+        carPxY,
+        carAngle,
+        energyState.wheelAngle,
+        speed,
+        energyState.isAirborne,
+        energyState.suspensionOffset
+      );
+
+      if (!energyState.editMode) {
+        const vecScale = 4.2;
+        if (energyState.showVelocity && speed > 0.2) {
+          drawArrow(
+            eCtx,
+            carPxX,
+            carPxY - 14,
+            carPxX + energyState.vx * vecScale,
+            carPxY - 14 - energyState.vy * vecScale,
+            "#10b981",
+            `v=${speed.toFixed(1)}m/s`
+          );
+        }
+
+        if (energyState.showForces) {
+          if (g > 0) {
+            drawArrow(
+              eCtx,
+              carPxX,
+              carPxY - 14,
+              carPxX,
+              carPxY - 14 + m * g * 1.6,
+              "#ef4444",
+              "mg"
+            );
+          }
+          if (!energyState.isAirborne && normalN > 0.2) {
+            const nx = -Math.sin(carAngle);
+            const ny = Math.cos(carAngle);
+            drawArrow(
+              eCtx,
+              carPxX,
+              carPxY - 14,
+              carPxX + nx * normalN * 1.6,
+              carPxY - 14 - ny * normalN * 1.6,
+              "#f59e0b",
+              `N=${normalN.toFixed(0)}N`
+            );
+          }
+        }
+
+        if (energyState.showAccel && latestTelemetry.accel > 0.2) {
+          const ax = energyState.isAirborne ? 0 : Math.cos(carAngle) * latestTelemetry.accel;
+          const ay = energyState.isAirborne ? -g : Math.sin(carAngle) * latestTelemetry.accel;
+          drawArrow(
+            eCtx,
+            carPxX,
+            carPxY - 14,
+            carPxX + ax * 4.5,
+            carPxY - 14 - ay * 4.5,
+            "#a855f7",
+            "a"
+          );
+        }
+      }
+
+      eCtx.restore();
+      eCtx.restore();
+
+      // LEFT HUD: LIVE ENERGY BARS & ANALOG SPEEDOMETER DIAL
+      eCtx.fillStyle = "#ffffff";
+      eCtx.strokeStyle = "#cbd5e1";
+      eCtx.lineWidth = 1.5;
+      eCtx.beginPath();
+      eCtx.roundRect(14, 14, 216, 402, 12);
+      eCtx.fill();
+      eCtx.stroke();
+
+      eCtx.fillStyle = "#0f172a";
+      eCtx.font = "bold 12px sans-serif";
+      eCtx.textAlign = "center";
+      eCtx.fillText("LIVE ENERGY CONSERVATION", 122, 34);
+
+      const maxScaleE = Math.max(energyState.totalInitialEnergy, 15);
+      const barBaseY = 235;
+      const maxBarH = 175;
+      const bars = [
+        { label: "KE", val: ke, color: "#059669", bx: 32 },
+        { label: "PE", val: pe, color: "#2563eb", bx: 80 },
+        { label: "Heat", val: thermal, color: "#ea580c", bx: 128 },
+        { label: "Total", val: totalE, color: "#7c3aed", bx: 176 }
+      ];
+
+      bars.forEach((b) => {
+        const bh = Math.min(maxBarH, (b.val / maxScaleE) * maxBarH);
+        eCtx.fillStyle = "#f1f5f9";
+        eCtx.fillRect(b.bx, barBaseY - maxBarH, 26, maxBarH);
+
+        eCtx.fillStyle = b.color;
+        eCtx.fillRect(b.bx, barBaseY - bh, 26, bh);
+
+        eCtx.fillStyle = "#334155";
+        eCtx.font = "bold 10px sans-serif";
+        eCtx.fillText(b.label, b.bx + 13, barBaseY + 14);
+        eCtx.fillStyle = "#64748b";
+        eCtx.font = "9px monospace";
+        eCtx.fillText(`${Math.round(b.val)}J`, b.bx + 13, barBaseY + 26);
+      });
+
+      const dialX = 122;
+      const dialY = 355;
+      const dialR = 46;
+      eCtx.strokeStyle = "#cbd5e1";
+      eCtx.lineWidth = 5;
+      eCtx.beginPath();
+      eCtx.arc(dialX, dialY, dialR, Math.PI * 0.85, Math.PI * 2.15);
+      eCtx.stroke();
+
+      const maxDialSpeed = 24;
+      const speedFrac = Math.min(1, speed / maxDialSpeed);
+      const needleAngle = Math.PI * 0.85 + speedFrac * (Math.PI * 1.3);
+
+      eCtx.strokeStyle = speed > 13 ? "#dc2626" : "#2563eb";
+      eCtx.lineWidth = 2.5;
+      eCtx.beginPath();
+      eCtx.moveTo(dialX, dialY);
+      eCtx.lineTo(dialX + Math.cos(needleAngle) * (dialR - 6), dialY + Math.sin(needleAngle) * (dialR - 6));
+      eCtx.stroke();
+
+      eCtx.fillStyle = "#0f172a";
+      eCtx.beginPath();
+      eCtx.arc(dialX, dialY, 4, 0, Math.PI * 2);
+      eCtx.fill();
+
+      eCtx.font = "bold 12px monospace";
+      eCtx.fillText(`${speed.toFixed(1)} m/s`, dialX, dialY + 24);
+      eCtx.fillStyle = "#64748b";
+      eCtx.font = "bold 9px sans-serif";
+      eCtx.fillText("SPEEDOMETER", dialX, dialY + 36);
+    }
+
+    // =========================================================================
+    // LIVE TELEMETRY HISTORY GRAPHS
+    // =========================================================================
+    function renderHistoryGraphs() {
+      const eHistCanvas = document.getElementById("energyHistoryCanvas");
+      const ehCtx = eHistCanvas.getContext("2d");
+      const sHistCanvas = document.getElementById("speedHistoryCanvas");
+      const shCtx = sHistCanvas.getContext("2d");
+
+      ehCtx.clearRect(0, 0, eHistCanvas.width, eHistCanvas.height);
+      shCtx.clearRect(0, 0, sHistCanvas.width, sHistCanvas.height);
+
+      const hist = energyState.history;
+      if (hist.length < 2) return;
+
+      const tMin = hist[0].t;
+      const tMax = Math.max(tMin + 2, hist[hist.length - 1].t);
+      const padL = 42;
+      const padR = 14;
+      const padT = 14;
+      const padB = 22;
+      const plotW = eHistCanvas.width - padL - padR;
+      const plotH = eHistCanvas.height - padT - padB;
+
+      const maxE = Math.max(energyState.totalInitialEnergy * 1.15, 20);
+      drawGraphGrid(ehCtx, padL, padT, plotW, plotH, maxE, "J");
+
+      const plotLine = (ctx, key, color, maxVal) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        hist.forEach((pt, idx) => {
+          const x = padL + ((pt.t - tMin) / (tMax - tMin)) * plotW;
+          const y = padT + plotH - Math.min(1, Math.max(0, pt[key] / maxVal)) * plotH;
+          if (idx === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+      };
+
+      plotLine(ehCtx, "total", "#7c3aed", maxE);
+      plotLine(ehCtx, "pe", "#2563eb", maxE);
+      plotLine(ehCtx, "ke", "#059669", maxE);
+      plotLine(ehCtx, "thermal", "#ea580c", maxE);
+
+      const maxS = Math.max(...hist.map((h) => Math.max(h.speed, h.normal)), 25);
+      drawGraphGrid(shCtx, padL, padT, plotW, plotH, maxS, "");
+      plotLine(shCtx, "speed", "#2563eb", maxS);
+      plotLine(shCtx, "normal", "#f59e0b", maxS);
+    }
+
+    function drawGraphGrid(ctx, padL, padT, plotW, plotH, maxVal, unit) {
+      ctx.strokeStyle = "#e2e8f0";
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i++) {
+        const y = padT + (plotH / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(padL + plotW, y);
+        ctx.stroke();
+
+        ctx.fillStyle = "#64748b";
+        ctx.font = "10px monospace";
+        ctx.textAlign = "right";
+        const val = maxVal * (1 - i / 4);
+        ctx.fillText(`${val.toFixed(0)}${unit}`, padL - 5, y + 3);
+      }
+    }
+
+    // =========================================================================
+    // SIMULATION 2: WORK & POWER RAMP SIMULATOR (PRESERVED)
+    // =========================================================================
+    const wCanvas = document.getElementById("workCanvas");
+    const wCtx = wCanvas.getContext("2d");
+
+    const workState = {
+      force: 50,
+      angle: 30,
+      distance: 10,
+      time: 4.0,
+      animProgress: 0,
+      animating: false
+    };
+
+    ["sliderWorkForce", "sliderWorkAngle", "sliderWorkDist", "sliderWorkTime"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", () => {
+        workState.force = parseFloat(document.getElementById("sliderWorkForce").value);
+        workState.angle = parseFloat(document.getElementById("sliderWorkAngle").value);
+        workState.distance = parseFloat(document.getElementById("sliderWorkDist").value);
+        workState.time = parseFloat(document.getElementById("sliderWorkTime").value);
+        updateWorkCalculations();
+      });
+    });
+
+    function runWorkPush() {
+      workState.animProgress = 0;
+      workState.animating = true;
+    }
+
+    function updateWorkCalculations() {
+      const { force, angle, distance, time } = workState;
+      const rad = (angle * Math.PI) / 180;
+      const effForce = force * Math.cos(rad);
+      const work = effForce * distance;
+      const power = work / time;
+      const hp = power / 746;
+      const mass = 5.0;
+      const finalSpeed = work > 0 ? Math.sqrt((2 * work) / mass) : 0;
+
+      document.getElementById("valWorkForce").textContent = `${force} N`;
+      document.getElementById("valWorkAngle").textContent = `${angle}°`;
+      document.getElementById("valWorkDist").textContent = `${distance} m`;
+      document.getElementById("valWorkTime").textContent = `${time.toFixed(1)} s`;
+
+      document.getElementById("cardWorkDone").textContent = work.toFixed(1);
+      document.getElementById("cardPower").textContent = power.toFixed(1);
+      document.getElementById("cardHorsepower").textContent = `${hp.toFixed(2)} HP`;
+      document.getElementById("cardEffForce").textContent = effForce.toFixed(1);
+      document.getElementById("cardWorkSpeed").textContent = finalSpeed.toFixed(2);
+
+      const typeEl = document.getElementById("cardWorkType");
+      if (Math.abs(work) < 0.05) {
+        typeEl.textContent = "Zero Work (θ = 90°)";
+        typeEl.className = "mt-1 text-[10px] font-bold text-slate-500";
+      } else if (work > 0) {
+        typeEl.textContent = "Positive Work";
+        typeEl.className = "mt-1 text-[10px] font-bold text-emerald-600";
+      } else {
+        typeEl.textContent = "Negative Work";
+        typeEl.className = "mt-1 text-[10px] font-bold text-red-600";
+      }
+
+      document.getElementById("derivWorkLine1").textContent = `= ${force} × ${distance} × cos(${angle}°)`;
+      document.getElementById("derivWorkRes").textContent = `= ${work.toFixed(2)} Joules`;
+      document.getElementById("derivPowerLine1").textContent = `= ${work.toFixed(2)} / ${time.toFixed(1)}`;
+      document.getElementById("derivPowerRes").textContent = `= ${power.toFixed(2)} Watts`;
+    }
+
+    function renderWorkCanvas(dt) {
+      wCtx.clearRect(0, 0, wCanvas.width, wCanvas.height);
+
+      if (workState.animating) {
+        workState.animProgress += dt / Math.max(workState.time * 0.4, 0.8);
+        if (workState.animProgress >= 1) {
+          workState.animProgress = 1;
+          workState.animating = false;
+        }
+      }
+
+      const startX = 160;
+      const groundY = 270;
+      const pxPerMeter = 38;
+      const totalPx = workState.distance * pxPerMeter;
+      const currentPx = totalPx * workState.animProgress;
+      const blockX = startX + currentPx;
+
+      wCtx.fillStyle = "#e2e8f0";
+      wCtx.fillRect(60, groundY, 980, 45);
+      wCtx.strokeStyle = "#64748b";
+      wCtx.lineWidth = 2;
+      wCtx.beginPath();
+      wCtx.moveTo(60, groundY);
+      wCtx.lineTo(1040, groundY);
+      wCtx.stroke();
+
+      wCtx.strokeStyle = "#94a3b8";
+      wCtx.setLineDash([5, 5]);
+      wCtx.strokeRect(startX - 35, groundY - 60, 70, 60);
+      wCtx.setLineDash([]);
+
+      wCtx.strokeStyle = "#2563eb";
+      wCtx.lineWidth = 3;
+      wCtx.beginPath();
+      wCtx.moveTo(startX, groundY + 22);
+      wCtx.lineTo(startX + totalPx, groundY + 22);
+      wCtx.stroke();
+
+      wCtx.fillStyle = "#1d4ed8";
+      wCtx.font = "bold 13px sans-serif";
+      wCtx.textAlign = "center";
+      wCtx.fillText(`Displacement d = ${workState.distance} m`, startX + totalPx / 2, groundY + 40);
+
+      wCtx.fillStyle = "#3b82f6";
+      wCtx.strokeStyle = "#1e3a8a";
+      wCtx.lineWidth = 2;
+      wCtx.fillRect(blockX - 35, groundY - 60, 70, 60);
+      wCtx.strokeRect(blockX - 35, groundY - 60, 70, 60);
+
+      wCtx.fillStyle = "#ffffff";
+      wCtx.font = "bold 13px sans-serif";
+      wCtx.fillText("5 kg", blockX, groundY - 25);
+
+      const rad = (workState.angle * Math.PI) / 180;
+      const vecLen = 60 + (workState.force / 150) * 80;
+      const endX = blockX + Math.cos(rad) * vecLen;
+      const endY = groundY - 30 - Math.sin(rad) * vecLen;
+
+      wCtx.strokeStyle = "#059669";
+      wCtx.setLineDash([4, 4]);
+      wCtx.lineWidth = 2.5;
+      wCtx.beginPath();
+      wCtx.moveTo(blockX, groundY - 30);
+      wCtx.lineTo(endX, groundY - 30);
+      wCtx.stroke();
+      wCtx.setLineDash([]);
+
+      wCtx.strokeStyle = "#ea580c";
+      wCtx.lineWidth = 4;
+      wCtx.beginPath();
+      wCtx.moveTo(blockX, groundY - 30);
+      wCtx.lineTo(endX, endY);
+      wCtx.stroke();
+
+      wCtx.fillStyle = "#ea580c";
+      wCtx.beginPath();
+      wCtx.arc(endX, endY, 5, 0, Math.PI * 2);
+      wCtx.fill();
+
+      wCtx.fillStyle = "#c2410c";
+      wCtx.font = "bold 13px sans-serif";
+      wCtx.fillText(`F = ${workState.force} N (θ = ${workState.angle}°)`, endX, endY - 12);
+    }
+
+    function resetLab() {
+      energyState.mass = 2.0;
+      energyState.startH = 8.0;
+      energyState.initV = 0.0;
+      energyState.gravity = 9.8;
+      energyState.gravityEnabled = true;
+      energyState.friction = 0.0;
+      energyState.frictionEnabled = true;
+      energyState.speedMult = 1.0;
+      energyState.controlPoints = JSON.parse(JSON.stringify(TRACK_TEMPLATES.u_track));
+      document.getElementById("selectTrackTemplate").value = "u_track";
+      document.getElementById("sliderMass").value = 2;
+      document.getElementById("sliderStartH").value = 8;
+      document.getElementById("sliderInitV").value = 0;
+      document.getElementById("sliderGravity").value = 9.8;
+      document.getElementById("chkGravity").checked = true;
+      document.getElementById("sliderFriction").value = 0;
+      document.getElementById("chkFriction").checked = true;
+      document.getElementById("selectSpeed").value = "1";
+      document.getElementById("valMass").textContent = "2.0 kg";
+      document.getElementById("valStartH").textContent = "8.0 m";
+      document.getElementById("valInitV").textContent = "0.0 m/s";
+      document.getElementById("valGravity").textContent = "9.8 m/s²";
+      document.getElementById("valFriction").textContent = "0.00 (Ideal)";
+      if (energyState.editMode) toggleTrackEditMode();
+      initCarOnTrack();
+      energyState.isPlaying = true;
+      document.getElementById("btnPlayEnergy").textContent = "Ⅱ Pause";
+
+      workState.force = 50;
+      workState.angle = 30;
+      workState.distance = 10;
+      workState.time = 4.0;
+      workState.animProgress = 0;
+      workState.animating = false;
+      document.getElementById("sliderWorkForce").value = 50;
+      document.getElementById("sliderWorkAngle").value = 30;
+      document.getElementById("sliderWorkDist").value = 10;
+      document.getElementById("sliderWorkTime").value = 4;
+      updateWorkCalculations();
+    }
+
+    initCarOnTrack();
+    updateWorkCalculations();
+
+    let lastTime = performance.now();
+    function loop(now) {
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      if (activeMode === "energy") {
+        if (energyState.isPlaying) {
+          stepEnergyPhysics(dt * energyState.speedMult);
+        }
+        renderEnergyCanvas();
+        renderHistoryGraphs();
+      } else {
+        renderWorkCanvas(dt);
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
